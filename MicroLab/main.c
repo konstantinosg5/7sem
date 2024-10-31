@@ -1,4 +1,5 @@
 /*
+ *lab3.2
  *  main.c
  *  Author: KG
  */ 
