@@ -1,16 +1,3 @@
-/*
- * lab3.3
- * main.c
- *
- * Created: 10/24/2024 10:11:26 AM
- *  Author: pavli
- */ 
-
-/*
- *  main.c
- *  Author: KG
- */ 
-
 #define F_CPU 16000000UL
 #include "avr/io.h"
 #include <util/delay.h>
