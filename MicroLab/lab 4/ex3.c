@@ -1,14 +1,7 @@
-/*
- * main.c
- *
- *  Author: KG
- */ 
 #define F_CPU 16000000UL // Set CPU frequency to 16 MHz
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
-
-
 
 #define LCD_RS 2
 #define LCD_E 3
