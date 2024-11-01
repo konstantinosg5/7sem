@@ -1,8 +1,3 @@
-;
-; lab4 - ex1.asm
-;
-; Author : user
-;
 .include "m328PBdef.inc" 
 .org 0x00
 rjmp reset
