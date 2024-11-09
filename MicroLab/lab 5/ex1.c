@@ -1,3 +1,4 @@
+
 /*
  * main.c
  *
@@ -182,28 +183,29 @@ int main(void){
 	PCA9555_0_write(REG_CONFIGURATION_0, 0x00); //Set EXT_PORT0 as output
 	
     DDRB = 0xF0; // Input A= PORTΒ.0, B= PORTΒ.1, C= PORTΒ.2, D= PORTΒ.3
-	DDRD = 0xFF;
-	uint8_t input=0, A, B, C, D, F0=0x0F, F1=0x0F , output;
+	
+	uint8_t input=0, A, B, C, D, F0, F1 , output;
     while(1){
 		input = PINB;
 		input = ~input; // take complimentary cause revert logic switches
 		
-		A = input & (1<<0);
-		B = (input & (1<<1))>>1;
-		C = (input & (1<<2))>>2;
-        D = (input & (1<<3))>>3;
+		A = input & 0x01;
+		B = (input & 0x02)>>1;
+		C = (input & 0x04)>>2;
+        D = (input & 0x08)>>3;
 		
 		//F0 = (A'BC + B'D)' F1= (A+B+C)(BD')
 		F0 = ~( (~A & B & C) | (~B & D) );
-		F0 = F0 & (1<<0);
+		F0 = F0 & 0x01;
 		
 		F1 = (A | B | C) & ( B & ~D );
-		F1 = F1 & (1<<0);
+		F1 = F1 & 0x01;
 		
-		output = F0 | (F1<<1);
+		output = F0  | (F1 << 1);
+		
 		
 		PCA9555_0_write(REG_OUTPUT_0, output);
-		_delay_ms(100);
+		_delay_ms(50);
 		
     }
 }
