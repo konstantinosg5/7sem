@@ -251,6 +251,7 @@ uint8_t keyboard_to_ascii(){
 		if (pressed_keys == 0x4000) return '3';
 		if (pressed_keys == 0x8000) return 'A';
 	}
+	return 0; // more than one pressed
 }
 
 
