@@ -185,10 +185,7 @@ int main(void){
 	twi_init();
 	PCA9555_0_write(REG_CONFIGURATION_0, 0x00); //Set EXT_PORT0 as output LEDS    ΑΝΤΙΣΤΡΟΦΗ ΛΟΓΙΚΗ
 	PCA9555_0_write(REG_CONFIGURATION_1, 0xF0); //Set EXT_PORT1_0 as output and rest input
-	
-	//PCA9555_0_write(REG_OUTPUT_0, 0);
-	//PCA9555_0_write(REG_OUTPUT_1, 0);
-	
+
 	
 	// Το port1_0 εχει τιμη 0, ειναι δηλαδη pulled downed , οταν ενωθει με ενα απο τα port1_4-7 (που ειναι
 	// pulled up) θα τα κανει απο 1  να δειξουν 0. Συνεπως, η εισοδος ειναι αντιστροφης λογικης.
