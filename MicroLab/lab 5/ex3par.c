@@ -186,14 +186,6 @@ uint8_t PCA9555_0_read(PCA9555_REGISTERS reg){
 }
 
 // Functions for LCD Screen
-
-void write_2_nibbles(uint8_t data);
-void lcd_clear_display();
-void lcd_command(uint8_t cmd);
-void lcd_data(unsigned char data);
-void lcd_init();
-void lcd_string(char *str);
-   
 void write_2_nibbles(uint8_t data){
 
     uint8_t temp=data;
@@ -215,10 +207,7 @@ void write_2_nibbles(uint8_t data){
    
 }
 
-void lcd_clear_display(){
-    lcd_command(0x01);  // command for clearing the screen
-    _delay_ms(5);
-}
+
 
 void lcd_command(uint8_t cmd){
     PCA9555_0_write(REG_OUTPUT_0, PCA9555_0_read(REG_INPUT_0) & (~0x04)); //LCD_RS=0 (Instruction)
@@ -230,6 +219,11 @@ void lcd_data(uint8_t  data){
     PCA9555_0_write(REG_OUTPUT_0, PCA9555_0_read(REG_INPUT_0) | 0x04); //LCD_RS=1 (Data)
     write_2_nibbles(data);
     _delay_us(250);
+}
+
+void lcd_clear_display(){
+    lcd_command(0x01);  // command for clearing the screen
+    _delay_ms(5);
 }
 
 void lcd_init(){
