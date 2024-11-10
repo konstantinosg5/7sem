@@ -265,8 +265,8 @@ int main(void){
 	uint8_t charPressed;
     while(1){		
         charPressed=keyboard_to_ascii();
-		if(charPressed=='A') PORTB=0x01;
-		else if(charPressed=='8') PORTB=0x02;
+	    if(charPressed=='A') PORTB=0x01;
+	    else if(charPressed=='8') PORTB=0x02;
 		else if(charPressed=='6') PORTB=0x04;
 		else if(charPressed=='*') PORTB=0x08;
 		else PORTB=0;
