@@ -375,8 +375,11 @@ void display_temp(uint16_t temp){
 		display[5]='-';
 	}
 	
-	temp = temp>>1; // don't need decimal part
-	
+	temp = temp>>1; // don't need decimal part 
+	                // DS1820  set to 1
+	                // DS18B20 set to 4
+
+	// Isolate each digit
 	uint8_t hunt = temp/100;
 	temp = temp % 100;
 	
@@ -384,8 +387,13 @@ void display_temp(uint16_t temp){
 	temp = temp % 10;
 	
 	uint8_t ones = temp;
+
+	// Make digits ASCII
+	hunt='0'+hunt;
+	tens='0'+tens;
+	ones='0'+ones;
 	
-	if (hunt==0){
+	if (hunt=='0'){
 		 display[6]==tens;
 		 display[7]==ones;
 	}
