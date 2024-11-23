@@ -1,8 +1,8 @@
+
 /*
  * main.c
  *
- * Created: 11/20/2024 12:23:49 PM
- *  Author: pavli
+ *  Author: KG
  */ 
 
 #define F_CPU 16000000UL
@@ -177,18 +177,111 @@ uint8_t PCA9555_0_read(PCA9555_REGISTERS reg){
 	
 	return ret_val;
 }
+
+
+//================================================================== FOR LCD ================
+void write_2_nibbles(int data){
+	uint8_t r25 = PIND & 0x0F; //read PIND
+
+	uint8_t high_byte = (data & 0xF0) + r25;
+	PORTD = high_byte;
+	PORTD |= (1 << PD3); // Set PD3 high
+	_delay_us(1);        // Short delay
+	PORTD &= ~(1 << PD3); // Set PD3 low
+
+	uint8_t low_byte = ((data & 0x0F) << 4) + r25;
+
+	// Output the low byte to PORTD
+	PORTD = low_byte;
+
+	// Enable pulse for low nibble
+	PORTD |= (1 << PD3); // Set PD3 high
+	_delay_us(1);        // Short delay
+	PORTD &= ~(1 << PD3); // Set PD3 low
+}
+
+
+
+//=======================================================
+void lcd_command(unsigned char code){
+	PORTD = ~( 1<<2 ); //LCD_RS=0(PD2=0), Instruction
+	write_2_nibbles(code); // send Instruction
+	_delay_us(250); // Wait 250uSec
+}
+
+//=======================================================
+void lcd_data(unsigned char data){
+	PORTD |= (1 << 2) ; //LCD_RS=1(PD2=1), Data
+	write_2_nibbles(data) ; //send data
+	_delay_us(250); // Wait 250uSec
+}
+
+//=======================================================
+void lcd_clear_display(){
+	lcd_command (0x01) ; //clear display command
+	_delay_ms(5) ; // Wait 5 mSec
+}
+
+//===========================================================
+void lcd_init(){
+	/*;Αρχικοποίηση και ρυθμίσεις της οθόνης LCD όπως παρουσιάζεται παρακάτω:
+	;DL = 0 4 bit mode
+	;N = 1 2 lines
+	;F = 0 5×8 dots
+	;D = 1 display on
+	;C = 0 cursor off
+	;B = 0 blinking off
+	;I/D = 1 DD-RAM address auto increment
+	;SH = 0 shift of entire display off
+	*/
+	_delay_ms(200);
+	PORTD=0x30 ;      // command to switch to 8 bit mode
+	PORTD |= (1<< 3) ;// Enable Pulse
+	_delay_us(1);
+	PORTD = 0x00;
+	_delay_us(250);   //Wait 250uSec
+
+	_delay_ms(200);
+	PORTD=0x30 ;      // command to switch to 8 bit mode
+	PORTD |= (1<< 3) ;// Enable Pulse
+	_delay_us(1);
+	PORTD = 0x00;
+	_delay_us(250);   //Wait 250uSec
+
+	_delay_ms(200);
+	PORTD=0x30 ;      // command to switch to 8 bit mode
+	PORTD |= (1<< 3); // Enable Pulse
+	_delay_us(1);
+	PORTD = 0x00;
+	_delay_us(250);   // Wait 250uSec
+
+	PORTD = 0x20;     // command to switch to 4 bit mode
+	PORTD |= (1<< 3); // Enable Pulse
+	_delay_us(1);
+	PORTD = 0x00;
+	_delay_us(250);
+
+	lcd_command(0x28); // 5x8 dots, 2 lines
+
+	lcd_command(0x0c) ; // dislay on, cursor off
+	lcd_clear_display();
+
+	lcd_command(0x06) ; //Increase address, no display shift ;
+
+}
 // ==============================================================================================
 // ==============================  EVERYTHING ABOVE WAS GIVEN  ==================================
 // ==============================================================================================
+
 // Το port1_0 εχει τιμη 0, ειναι δηλαδη pulled downed , οταν ενωθει με ενα απο τα port1_4-7 (που ειναι
 // pulled up) θα τα κανει απο 1  να δειξουν 0. Συνεπως, η εισοδος ειναι αντιστροφης λογικης.
-uint8_t scan_row(uint8_t row){ // row should be int from 1 to 4
+uint8_t scan_row(uint8_t row){ // row should be int from 1 to 4 
 	uint8_t input;
-	row = ~( 1<<(row-1) );  // it leaves 0 only to the line that should be read
+	row = ~( 1<<(row-1) );  // it leaves 0 only to the line that should be read 
 	
-	PCA9555_0_write(REG_CONFIGURATION_1, row); //Set EXT_PORT1_0 as output and rest input
+	PCA9555_0_write(REG_OUTPUT_1, row); //Set EXT_PORT1_0 as output and rest input
 	
-	PCA9555_0_write(REG_INPUT_1,0x00);
+	//PCA9555_0_write(REG_INPUT_1,0x00);
 	input = PCA9555_0_read(REG_INPUT_1);
 	input = ( (~input & 0xF0) >> 4);
 	
@@ -208,9 +301,9 @@ uint16_t scan_keyboard (){
 
 
 
-uint16_t pressed_keys; // Moναδα στο αντιστοιχο bit αντιστοιχει σε πιεσμενο πληκτρο,
-// μετραμε απο κατω προς τα πανω και απο δεξια προς τα αριστερα
-// Δηλαδη το bit0 αντιστοιχει στο '*', το bit1 στο '0'κτλ
+uint16_t pressed_keys; // Moναδα στο αντιστοιχο bit αντιστοιχει σε πιεσμενο πληκτρο, 
+                       // μετραμε απο κατω προς τα πανω και απο δεξια προς τα αριστερα
+					   // Δηλαδη το bit0 αντιστοιχει στο '*', το bit1 στο '0'κτλ
 void scan_keypad_rising_edge(){
 	uint16_t pressed_keys_tempo;
 	
@@ -233,45 +326,64 @@ uint8_t keyboard_to_ascii(){
 		if (pressed_keys == 0x0004) return '#' ;
 		if (pressed_keys == 0x0008) return 'D' ;
 		
-		}else if (pressed_keys<0x00100){
+	}else if (pressed_keys<0x00100){
 		if (pressed_keys == 0x0010) return '7' ;
 		if (pressed_keys == 0x0020) return '8' ;
 		if (pressed_keys == 0x0040) return '9';
 		if (pressed_keys == 0x0080) return 'C';
 		
-		}else if (pressed_keys<0x1000){
+	}else if (pressed_keys<0x1000){
 		if (pressed_keys == 0x0100) return '4';
 		if (pressed_keys == 0x0200) return '5';
 		if (pressed_keys == 0x0400) return '6';
 		if (pressed_keys == 0x0800) return 'B';
-		
-		}else {
+	
+	}else {
 		if (pressed_keys == 0x1000) return '1';
 		if (pressed_keys == 0x2000) return '2';
 		if (pressed_keys == 0x4000) return '3';
 		if (pressed_keys == 0x8000) return 'A';
 	}
-	return 0; // more than one pressed
+	return 0; // if more than one pressed
 }
+
 
 int main(void){
 	twi_init();
-	PCA9555_0_write(REG_CONFIGURATION_0, 0x00); //Set EXT_PORT0 as output LEDS    ΑΝΤΙΣΤΡΟΦΗ ΛΟΓΙΚΗ
+	DDRD = 0xFF; // output
+    
+	lcd_init();
+	PCA9555_0_write(REG_CONFIGURATION_0, 0x00); 
+	PCA9555_0_write(REG_CONFIGURATION_0, 0x0F); //Set EXT_PORT0 as output LEDS    ΑΝΤΙΣΤΡΟΦΗ ΛΟΓΙΚΗ
 	DDRB = 0xFF; // output
-	PORTB = 0xFF;  // Αρχικά σβηστά τα LEDs (αρνητική λογική)
+	PORTB = 0x00;  // Αρχικά σβηστά τα LEDs 
 	
 	uint8_t first_digit = 0xFF, second_digit = 0xFF;
 	uint8_t charPressed;
 	
 	while(1){
+		_delay_ms(150);
+		
+		
+		asm("nop");
+		
 		charPressed = keyboard_to_ascii();
 		
-		if(charPressed = 0){
-			continue; //Δεν πατήθηκε κάποιο πλήκτρο
+		if ( charPressed!=0 ) lcd_data(charPressed);
+		 		 
+		//lcd_command(0x80); // cursor to first line
+		
+		while( keyboard_to_ascii() != 0){
+			 //Δεν πατήθηκε κάποιο άλλο πλήκτρο
+		
+		}
+		
+		if(charPressed == 0){
+			continue;
 		}
 		
 		//Αποθήκευση πρώτου ψηφίου
-		if(first_digit == 0xFF){
+		else if(first_digit == 0xFF){
 			first_digit = charPressed;
 		}
 		
@@ -280,27 +392,31 @@ int main(void){
 			second_digit = charPressed;
 			
 			//Έλεγχος αν τα ψηφία είναι τα σωστά
-			if ( first_digit == 0 && second_digit == 5){
+			if ( first_digit == '0' && second_digit == '5'){
 				 // Σωστό
 				
-				 PORTB = ~0x3F; //PB0 - PB5 ανάβουν
+				 PORTB = 0xFF; //PB0 - PB5 ανάβουν
 				 _delay_ms(3000);
-				 PORTB = 0xFF; // PB0 - PB5 σβηστά
+				 PORTB = 0x00; // PB0 - PB5 σβηστά
+				 
+				 _delay_ms(2000);
+				 
 				 
 			}
 			else{
 				 // Λάθος
 				 
+				 
 				 for(uint8_t i = 0; i < 5 ; i++){
-					 PORTB = ~0x3F; //PB0 - PB5 ανάβουν
+					 PORTB = 0xFF; //PB0 - PB5 ανάβουν
 					 _delay_ms(500);
-					 PORTB = 0xFF; //PB0 - PB5 σβηστά
+					 PORTB = 0x00; //PB0 - PB5 σβηστά
 					 _delay_ms(500);
 				 }
-        
+				 
 			}
+			lcd_clear_display();
 			
-			_delay_ms(5000);
 			
 			//Επαναφορά ψηφίων
 			first_digit = 0xFF;
