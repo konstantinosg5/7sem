@@ -278,9 +278,10 @@ uint8_t one_wire_reset(){
 	PORTD &= 0xEF; // disable pull up
 	
 	_delay_us(100); // wait for someone to connect
-	
+	uint8_t input = PIND;
+	_delay_us(380);
 	 //if device connects PD4 becomes 0 
-	if (PIND & 0x10 == 0x10) return 0; // no device 
+	if ((input & 0x10 )== 0x10) return 0; // no device 
 	else return 1;  // device connected
 }
 
@@ -319,32 +320,35 @@ void one_wire_transmit_bit(uint8_t value){
 
 
 uint8_t one_wire_receive_byte(){
-	uint8_t output;
+	uint8_t output=0;
 	
 	for (int i=0; i<8; i++){
 		output |= (one_wire_receive_bit()<<i);
 	}
 	
+    asm("nop");	
 	return output;
 }
 
 
 void one_wire_transmit_byte(uint8_t value){
 	for (int i=0; i<8; i++){
-		one_wire_transmit_byte(value>>i);
-	}	
+		one_wire_transmit_bit(value>>i);
+	}
+	asm("nop");	
 }
 
 uint16_t thermometer_routine(){
 	// 1. initialization and check for connected devices
-	if(one_wire_reset()==0) return 0x8000; //if no device connected
+	uint8_t temp1=one_wire_reset();
+	if(temp1 == 0) return 0x8000; //if no device connected
 	
 	// 2. send command 0xCC
 	one_wire_transmit_byte(0xCC);
 	
 	// 3.Send command 0x44 and read temp as a check?
 	one_wire_transmit_byte(0x44);
-	while (one_wire_receive_bit()==0) _delay_ms(250); //polling
+	while (one_wire_receive_bit()==0) ; //polling
 	
 	
 	// 5. Reinitialization and check for connected devices
@@ -357,7 +361,7 @@ uint16_t thermometer_routine(){
 	one_wire_transmit_byte(0xBE);
 	
 	// 8. Receive the 2 bytes
-	uint16_t temp;
+	uint16_t temp = 0;
 	temp = one_wire_receive_byte();  // low byte
 	temp |= ( one_wire_receive_byte()<<8 );  // high byte
 	
@@ -367,19 +371,17 @@ uint16_t thermometer_routine(){
 void display_temp(uint16_t temp){
 	lcd_clear_display();
 	
-	char display[]="TEMP:     °C";
+	char display[]="TEMP:       oC";
 	
 	if (temp>0xF000){ // temp negative get 2 compliment
 		temp=~temp;
 		temp+=1;
 		display[5]='-';
 	}
+	uint16_t decimal_temp = temp & (0x000F);
 	
-	temp = temp>>1; // don't need decimal part 
-	                // DS1820  set to 1
-	                // DS18B20 set to 4
+	temp = temp >> 4;
 
-	// Isolate each digit
 	uint8_t hunt = temp/100;
 	temp = temp % 100;
 	
@@ -387,26 +389,48 @@ void display_temp(uint16_t temp){
 	temp = temp % 10;
 	
 	uint8_t ones = temp;
-
+	
+	decimal_temp = decimal_temp *10000;
+	
+	uint8_t dec_ones = decimal_temp/10000;
+	decimal_temp = decimal_temp % 10000;
+	
+	uint8_t cent = decimal_temp/1000;
+	decimal_temp = decimal_temp % 1000;
+	
+	uint8_t mili = decimal_temp/100;
+	
 	// Make digits ASCII
 	hunt='0'+hunt;
 	tens='0'+tens;
 	ones='0'+ones;
+	dec_ones += '0';
+	cent += '0';
+	mili += '0';
 	
 	if (hunt=='0'){
-		 display[6]==tens;
-		 display[7]==ones;
+		 display[6]=tens;
+		 display[7]=ones;
+		 display[8]='.';
+		 display[9]=dec_ones;
+		 display[10]=cent;
+		 display[11]= mili;
 	}
 	else {
 		display[6]=hunt;
 		display[7]=tens;
 		display[8]=ones;
+		display[8]='.';
+		display[9]=dec_ones;
+		display[10]=cent;
+		display[11]= mili;
 	}	
 	
 	lcd_print(display); // i load that only once and i will change only the numbers
 }
 
 int main(){
+	DDRD=0xFF;
 	twi_init();
 	PCA9555_0_write(REG_CONFIGURATION_0, 0x00); //Set EXT_PORT0 as output LEDS   INVERSE LOGIC	
 	lcd_init();
@@ -423,6 +447,7 @@ int main(){
 			lcd_print(display);
 		}else{
 			display_temp(temperature);			
-		}	
+		}
+		_delay_ms(1000);	
     }
 }
