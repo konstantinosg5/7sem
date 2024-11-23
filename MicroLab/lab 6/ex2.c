@@ -1,3 +1,4 @@
+
 /*
  * main.c
  *
@@ -278,9 +279,9 @@ uint8_t scan_row(uint8_t row){ // row should be int from 1 to 4
 	uint8_t input;
 	row = ~( 1<<(row-1) );  // it leaves 0 only to the line that should be read 
 	
-	PCA9555_0_write(REG_CONFIGURATION_1, row); //Set EXT_PORT1_0 as output and rest input
+	PCA9555_0_write(REG_OUTPUT_1, row); //Set EXT_PORT1_0 as output and rest input
 	
-	PCA9555_0_write(REG_INPUT_1,0x00);
+	//PCA9555_0_write(REG_INPUT_1,0x00);
 	input = PCA9555_0_read(REG_INPUT_1);
 	input = ( (~input & 0xF0) >> 4);
 	
@@ -351,10 +352,12 @@ uint8_t keyboard_to_ascii(){
 
 int main(void){
 	twi_init();
+	DDRD = 0xFF; // output
+    
 	lcd_init();
 	PCA9555_0_write(REG_CONFIGURATION_0, 0x00); //Set EXT_PORT0 as output LEDS    ΑΝΤΙΣΤΡΟΦΗ ΛΟΓΙΚΗ
-	DDRB = 0xFF; // output
-    
+	PCA9555_0_write(REG_CONFIGURATION_1, 0xF0); 
+	
 	uint8_t charPressed;
     while(1){		
         charPressed = keyboard_to_ascii();
