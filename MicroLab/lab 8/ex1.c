@@ -188,7 +188,83 @@ uint8_t PCA9555_0_read(PCA9555_REGISTERS reg){
 }
 
 //  ====================================================== Functions for the PCA9555 /\
-//  ====================================================================
+//  =======================================================================================
+//  ===================================================== Functions for keyboard \/
+// Το port1_0 εχει τιμη 0, ειναι δηλαδη pulled downed , οταν ενωθει με ενα απο τα port1_4-7 (που ειναι
+// pulled up) θα τα κανει απο 1  να δειξουν 0. Συνεπως, η εισοδος ειναι αντιστροφης λογικης.
+uint8_t scan_row(uint8_t row){ // row should be int from 1 to 4
+	uint8_t input;
+	row = ~( 1<<(row-1) );  // it leaves 0 only to the line that should be read
+	
+	PCA9555_0_write(REG_OUTPUT_1, row); //Set EXT_PORT1_0 as output and rest input
+	
+	//PCA9555_0_write(REG_INPUT_1,0x00);
+	input = PCA9555_0_read(REG_INPUT_1);
+	input = ( (~input & 0xF0) >> 4);
+	
+	return input;  //it return the pressed keys in the lsbs
+	
+}
+
+
+uint16_t scan_keyboard (){
+	uint16_t keyboard = 0;
+	for (uint8_t i=1; i<=4; i++){
+		keyboard |= ( scan_row(i)<<( 4*(i-1) ) );
+	}
+	
+	return keyboard;
+}
+
+
+
+uint16_t pressed_keys; // Moναδα στο αντιστοιχο bit αντιστοιχει σε πιεσμενο πληκτρο,
+// μετραμε απο κατω προς τα πανω και απο δεξια προς τα αριστερα
+// Δηλαδη το bit0 αντιστοιχει στο '*', το bit1 στο '0'κτλ
+void scan_keypad_rising_edge(){
+	uint16_t pressed_keys_tempo;
+	
+	pressed_keys_tempo = scan_keyboard();
+	_delay_ms(20);
+	
+	pressed_keys_tempo &= scan_keyboard();
+	
+	pressed_keys=pressed_keys_tempo;
+	
+}
+
+
+uint8_t keyboard_to_ascii(){
+	scan_keypad_rising_edge();
+	if (pressed_keys==0) return 0;
+	if (pressed_keys<0x000F){
+		if (pressed_keys == 0x0001) return '*' ;
+		if (pressed_keys == 0x0002) return '0' ;
+		if (pressed_keys == 0x0004) return '#' ;
+		if (pressed_keys == 0x0008) return 'D' ;
+		
+		}else if (pressed_keys<0x00100){
+		if (pressed_keys == 0x0010) return '7' ;
+		if (pressed_keys == 0x0020) return '8' ;
+		if (pressed_keys == 0x0040) return '9';
+		if (pressed_keys == 0x0080) return 'C';
+		
+		}else if (pressed_keys<0x1000){
+		if (pressed_keys == 0x0100) return '4';
+		if (pressed_keys == 0x0200) return '5';
+		if (pressed_keys == 0x0400) return '6';
+		if (pressed_keys == 0x0800) return 'B';
+		
+		}else {
+		if (pressed_keys == 0x1000) return '1';
+		if (pressed_keys == 0x2000) return '2';
+		if (pressed_keys == 0x4000) return '3';
+		if (pressed_keys == 0x8000) return 'A';
+	}
+	return 0; // if more than one pressed
+}
+//  ====================================================== Functions for keyboard /\
+//  ===================================================================================
 //  ====================================================== Functions for LCD Screen \/
 void write_2_nibbles(uint8_t data){
 
@@ -435,7 +511,7 @@ float adc_read_pressure() {
 	return (ADC*20)/1024; // calculate pressure;
 }
 
-void lcd_display(uint16_t temp, float pressure, const char* status ){
+void lcd_display(uint16_t temp, uint16_t pressure, const char* status ){
 	lcd_clear_display();
 	uint16_t decimal_temp, tens, ones, dec_ones;
 	char display[]="T:    oC  P:    ";
@@ -469,13 +545,14 @@ void lcd_display(uint16_t temp, float pressure, const char* status ){
 		display[3]='1';
 	}
 	//======  same for pressure  =======
-	tens=pressure/10;
-	pressure=pressure%10.0;
 	
-	ones=pressure;
-	pressure%=1.0;
+	tens=pressure/100;
+	pressure=pressure%100;
 	
-	dec_ones=pressure/0.1;
+	ones=pressure/10;
+	pressure%+10
+	
+	dec_ones=pressure;
 	
 	// Make digits ASCII
 	tens='0'+tens;
@@ -557,6 +634,7 @@ int main(){
 	lcd_init();
 	usart_init(103); // UBRR =(fosc /16 * BAUD) -1
 	
+	uint8_t button;
 	float temperature, pressure;
 	const char* buffer;  // read buffer
 	
@@ -613,11 +691,13 @@ int main(){
 		}
 		
 		pressure = adc_read_pressure();
+		button = keyboard_to_ascii();
 		
+		CheckStatus((int)(temperature*10),(int)(pressure*10),button);
 		
 		lcd_display(temperature, pressure, status);
 		
-		_delay_ms(1000);	
+		_delay_ms(5000);	
 		
 		
     }
