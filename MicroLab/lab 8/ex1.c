@@ -447,8 +447,8 @@ uint16_t thermometer_routine(){
 //============================================================================================
 //  ===============================================================   ADC Functions  \/
 void adc_init() {
-	// REFSn[1:0]=01 => select Vref=5V, MUXn[4:0]=0000 => select ADC0(pin PC0),
-	// ADLAR=0 =>right adjust the ADC result      0b01000000
+	// REFSn[1:0]=01 => select Vref=5V, MUXn[4:0]=0001 => select ADC0(pin PC0),
+	// ADLAR=0 =>right adjust the ADC result      0b01000100
 	ADMUX = (1 << REFS0) ;
 	
 	// Enable ADC prescaler = 128  
@@ -508,7 +508,7 @@ uint8_t usart_receive(){
 float adc_read_pressure() {
 	ADCSRA |= (1 << ADSC);  // Start Conversion
 	while (ADCSRA & (1 << ADSC));  // Polling
-	return (ADC*20)/1024; // calculate pressure;
+	return (ADC*200.0)/1024; // calculate pressure;
 }
 
 void lcd_display(uint16_t temp, uint16_t pressure, const char* status ){
@@ -517,14 +517,14 @@ void lcd_display(uint16_t temp, uint16_t pressure, const char* status ){
 	char display[]="T:    oC  P:    ";
 	
 	if (temp!=-1){
-		temp+=12; // Increasing temp, so it gets closer to human-like
-	
+		
 		decimal_temp = temp & (0x000F);
 		decimal_temp = decimal_temp *10000;
 		dec_ones = decimal_temp/10000;	
-		
+				
+	
 		temp = temp >> 4;
-
+		temp+=12; // Increasing temp, so it gets closer to human-like
 		tens = temp/10;
 		temp = temp % 10;
 	
@@ -550,7 +550,7 @@ void lcd_display(uint16_t temp, uint16_t pressure, const char* status ){
 	pressure=pressure%100;
 	
 	ones=pressure/10;
-	pressure%+10
+	pressure%=10;
 	
 	dec_ones=pressure;
 	
@@ -567,7 +567,6 @@ void lcd_display(uint16_t temp, uint16_t pressure, const char* status ){
 	lcd_print(display); // i load that only once and i will change only the numbers
 	
 	lcd_command(0xC0);
-	lcd_print("Status: ");
 	lcd_print(status);
 }
 
@@ -575,7 +574,7 @@ const char* esp_read(){
 	uint8_t c, i=0;
 	char readBuffer[100];  // As big as the LCD
 	
-	while(c = usart_receive()!= '\n'){// As long as its not change line
+	while((c = usart_receive())!= '\n'){// As long as its not change line
 		readBuffer[i++]=c;		
 	}
 	
@@ -584,10 +583,13 @@ const char* esp_read(){
 
 void esp_write(const char *str){
 	int i=0;
-	{
+	
+	while( str[i]!='\n' ){
 		usart_transmit(str[i]);
 		i++;
-	} while( str[i]!='\n' );
+		asm("nop");
+	} 
+	usart_transmit('\n');
 }
 
 void loadingAnimation(uint16_t totalTime){ // it displays a loading animation to second line of lcd
@@ -595,9 +597,9 @@ void loadingAnimation(uint16_t totalTime){ // it displays a loading animation to
 	
 	lcd_command(0xC0); // second line
 	
-	for(int i; i<16; i++){
+	for(int i=0; i<16; i++){
 		lcd_data('#');
-		for(int j; j<step; j++){
+		for(int j=0; j<step; j++){
 			_delay_ms(1);
 		}
 	}
@@ -605,9 +607,10 @@ void loadingAnimation(uint16_t totalTime){ // it displays a loading animation to
 }
 
 const char* status;
-void CheckStatus(float temperature, float pressure, char button ){
+void CheckStatus(uint16_t temperature, float pressure, char button ){
 	static int flagNurseCalled=0;
-	
+	temperature=temperature>>4;
+	temperature+=12;
 	if (button == '5') {
 		flagNurseCalled=1;
 		status = "NURSE CALL";
@@ -616,7 +619,7 @@ void CheckStatus(float temperature, float pressure, char button ){
 	else if (button == '#') flagNurseCalled=0; 
 	
 	if(flagNurseCalled==0){ // If nurse isn't being called, you can change status
-		if( pressure<4 || pressure>12) status = "CHECK PRESSURE";
+		if( pressure<40 || pressure>120) status = "CHECK PRESSURE";
 		else if (temperature<34 || temperature>37) status = "CHECK TEMP";
 		else status = "OK";
 	}
@@ -635,12 +638,16 @@ int main(){
 	usart_init(103); // UBRR =(fosc /16 * BAUD) -1
 	
 	uint8_t button;
-	float temperature, pressure;
+	uint16_t temperature;
+	float pressure;
 	const char* buffer;  // read buffer
+	char buffer2[100];
 	
     while(1){
 		// ==========    STEP 1: Connect to wifi   ===================
-		esp_write("ESP:connect\n");
+		sprintf(buffer2,"ESP:connect\n" );
+		buffer2[12]='\n';
+		esp_write(buffer2);
 					
 		while(1){
 			buffer=esp_read();
@@ -693,7 +700,7 @@ int main(){
 		pressure = adc_read_pressure();
 		button = keyboard_to_ascii();
 		
-		CheckStatus((int)(temperature*10),(int)(pressure*10),button);
+		CheckStatus(temperature, (uint16_t)(pressure),button);
 		
 		lcd_display(temperature, pressure, status);
 		
