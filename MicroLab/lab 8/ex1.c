@@ -8,6 +8,7 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
+#include <stdio.h> // for sprintf 
 
 #define PCA9555_0_ADDRESS 0x40
 #define TWI_READ 1
@@ -505,22 +506,40 @@ uint8_t usart_receive(){
 //===========================================================================================
 //===== ABOVE IS GIVEN CODE FOR THE ADC, LCD, TWI, PCA9555, OneWire/Thermometer and UART ==========
 //===========================================================================================
-float adc_read_pressure() {
+uint16_t adc_read_pressure() {
 	ADCSRA |= (1 << ADSC);  // Start Conversion
 	while (ADCSRA & (1 << ADSC));  // Polling
-	return (ADC*200.0)/1024; // calculate pressure;
+	return (ADC*200)/1024; // calculate pressure;
 }
 
-void lcd_display(uint16_t temp, uint16_t pressure, const char* status ){
+void lcd_display(uint16_t temperature, uint16_t pressure, const char* status ){
 	lcd_clear_display();
+	float temp,pres;
+	
+	temp = (temperature>>4); // Integer part of temp
+	temp += (temperature & 0x000F)/16.0; // decimal part
+	
+	pres = pressure /10.0; // pressure was given multiplied by 10
+	
+	// creating json
+	static char display[16];
+	
+	sprintf(display, "T: %.1foC P:%.1f", temp, pres);
+	
+	lcd_print(display);
+	
+	lcd_command(0xC0); //change line
+	lcd_print(status);
+	
+	/*
 	uint16_t decimal_temp, tens, ones, dec_ones;
 	char display[]="T:    oC  P:    ";
 	
 	if (temp!=-1){
 		
 		decimal_temp = temp & (0x000F);
-		decimal_temp = decimal_temp *10000;
-		dec_ones = decimal_temp/10000;	
+		decimal_temp = decimal_temp *10;
+		dec_ones = decimal_temp/16;	
 				
 	
 		temp = temp >> 4;
@@ -568,6 +587,7 @@ void lcd_display(uint16_t temp, uint16_t pressure, const char* status ){
 	
 	lcd_command(0xC0);
 	lcd_print(status);
+	*/
 }
 
 const char* esp_read(){
@@ -607,7 +627,7 @@ void loadingAnimation(uint16_t totalTime){ // it displays a loading animation to
 }
 
 const char* status;
-void CheckStatus(uint16_t temperature, float pressure, char button ){
+void CheckStatus(uint16_t temperature, uint16_t pressure, char button ){
 	static int flagNurseCalled=0;
 	temperature=temperature>>4;
 	temperature+=12;
@@ -626,6 +646,23 @@ void CheckStatus(uint16_t temperature, float pressure, char button ){
 	
 }
 
+void esp_transmit_payload(uint16_t temperature, uint16_t pressure, const char* status){
+	float temp,pres;
+	
+	temp = (temperature>>4); // Integer part of temp
+	temp += (temperature & 0x000F)/16.0; // decimal part
+	
+	pres = pressure /10.0; // pressure was given multiplied by 10
+	
+	// creating json
+	static char json[200];
+	
+	sprintf(json,"payload:[{\"name\": \"temperature\",\"value\": \"%.1f\"},{\"name\": \"pressure\",\"value\": \"%.1f\"},{\"name\": \"team\",\"value\": \"5\"},{\"name\": \"status\",\"value\": \"%s\"}]",temp, pres, status);
+	
+	esp_write(json);
+	
+}
+
 
 int main(){
 	DDRD=0xFF;  // Set for the thermometer
@@ -638,18 +675,14 @@ int main(){
 	usart_init(103); // UBRR =(fosc /16 * BAUD) -1
 	
 	uint8_t button;
-	uint16_t temperature;
-	float pressure;
+	uint16_t temperature, pressure;
 	const char* buffer;  // read buffer
-	char buffer2[100];
 	
     while(1){
 		// ==========    STEP 1: Connect to wifi   ===================
-		sprintf(buffer2,"ESP:connect\n" );
-		buffer2[12]='\n';
-		esp_write(buffer2);
-					
 		while(1){
+			esp_write("ESP:connect\n");
+						
 			buffer=esp_read();
 			
 			if (buffer[1]=='S'){//	if it return "\"Success\""	
@@ -664,13 +697,13 @@ int main(){
 			}					
 		}
 		
-		loadingAnimation(2000); // wait 2 sec in between steps
+		loadingAnimation(1000); // wait 2 sec in between steps
 		 
 		 
 		// ==========    STEP 2: Connect to URL   ===================
-		esp_write("ESP:url:\"http://192.168.1.250:5000/data\"\n");
-			
 		while(1){
+			esp_write("ESP:url:\"http://192.168.1.250:5000/data\"\n");
+					
 			buffer=esp_read();
 			if (buffer[1]=='S'){//	if it return "\"Success\""
 				lcd_clear_display();
@@ -684,7 +717,7 @@ int main(){
 			}
 		}
 		
-		loadingAnimation(2000); // wait 2 sec in between steps
+		loadingAnimation(1000); // wait 2 sec in between steps
 		
 		
 		// ==========    STEP 3: PAYLOAD LCD   ===================
@@ -704,8 +737,41 @@ int main(){
 		
 		lcd_display(temperature, pressure, status);
 		
-		_delay_ms(5000);	
+		_delay_ms(5000);
 		
 		
-    }
-}
+		// ==========    STEP 3: PAYLOAD ESP   ===================		
+		while(1){
+			esp_transmit_payload(temperature, pressure, status);
+			
+			buffer=esp_read();
+			if (buffer[1]=='S'){//	if it return "\"Success\""
+				lcd_clear_display();
+				lcd_print("3. SUCCESS");
+				break;
+				
+				} else{
+				lcd_clear_display();
+				lcd_print("3. FAIL");
+				loadingAnimation(20000);// if fail wait 20sec
+			}
+		}
+		
+		loadingAnimation(1000);
+		
+		
+		// ==========    STEP 4: SERVER RESPONSE   ===================
+		esp_write("ESP:transmit\n");
+			
+		buffer=esp_read();
+		
+		lcd_clear_display();
+		lcd_print("4. ");
+		lcd_print(buffer);		
+		
+		loadingAnimation(2000);
+		
+		
+		
+    }//main while
+}//main
