@@ -509,7 +509,7 @@ uint8_t usart_receive(){
 uint16_t adc_read_pressure() {
 	ADCSRA |= (1 << ADSC);  // Start Conversion
 	while (ADCSRA & (1 << ADSC));  // Polling
-	return (ADC*200)/1024; // calculate pressure;
+	return (ADC*20)/1024*10; // calculate pressure;
 }
 
 void lcd_display(uint16_t temperature, uint16_t pressure, const char* status ){
@@ -518,7 +518,7 @@ void lcd_display(uint16_t temperature, uint16_t pressure, const char* status ){
 	
 	temp = (temperature>>4); // Integer part of temp
 	temp += (temperature & 0x000F)/16.0; // decimal part
-	
+	temp += 12;
 	pres = pressure /10.0; // pressure was given multiplied by 10
 	
 	// creating json
@@ -531,69 +531,13 @@ void lcd_display(uint16_t temperature, uint16_t pressure, const char* status ){
 	lcd_command(0xC0); //change line
 	lcd_print(status);
 	
-	/*
-	uint16_t decimal_temp, tens, ones, dec_ones;
-	char display[]="T:    oC  P:    ";
-	
-	if (temp!=-1){
-		
-		decimal_temp = temp & (0x000F);
-		decimal_temp = decimal_temp *10;
-		dec_ones = decimal_temp/16;	
-				
-	
-		temp = temp >> 4;
-		temp+=12; // Increasing temp, so it gets closer to human-like
-		tens = temp/10;
-		temp = temp % 10;
-	
-		ones = temp;
-	
-		// Make digits ASCII
-		tens='0'+tens;
-		ones='0'+ones;
-		dec_ones += '0';
 
-		// display
-		display[2]=tens;
-		display[3]=ones;
-		display[4]='.';
-		display[5]=dec_ones;
-	} else {// No device
-		display[2]='-';
-		display[3]='1';
-	}
-	//======  same for pressure  =======
-	
-	tens=pressure/100;
-	pressure=pressure%100;
-	
-	ones=pressure/10;
-	pressure%=10;
-	
-	dec_ones=pressure;
-	
-	// Make digits ASCII
-	tens='0'+tens;
-	ones='0'+ones;
-	dec_ones += '0';
-
-	// display
-	display[12]=tens;
-	display[13]=ones;
-	display[14]='.';
-	display[15]=dec_ones;
-	lcd_print(display); // i load that only once and i will change only the numbers
-	
-	lcd_command(0xC0);
-	lcd_print(status);
-	*/
 }
 
 const char* esp_read(){
 	uint8_t c, i=0;
 	char readBuffer[100];  // As big as the LCD
-	
+	*readBuffer=NULL;
 	while((c = usart_receive())!= '\n'){// As long as its not change line
 		readBuffer[i++]=c;		
 	}
@@ -657,7 +601,7 @@ void esp_transmit_payload(uint16_t temperature, uint16_t pressure, const char* s
 	// creating json
 	static char json[200];
 	
-	sprintf(json,"payload:[{\"name\": \"temperature\",\"value\": \"%.1f\"},{\"name\": \"pressure\",\"value\": \"%.1f\"},{\"name\": \"team\",\"value\": \"5\"},{\"name\": \"status\",\"value\": \"%s\"}]",temp, pres, status);
+	sprintf(json,"ESP:payload:[{\"name\": \"temperature\",\"value\": \"%.1f\"},{\"name\": \"pressure\",\"value\": \"%.1f\"},{\"name\": \"team\",\"value\": \"5\"},{\"name\": \"status\",\"value\": \"%s\"}]\n",temp, pres, status);
 	
 	esp_write(json);
 	
@@ -676,16 +620,19 @@ int main(){
 	
 	uint8_t button;
 	uint16_t temperature, pressure;
-	const char* buffer;  // read buffer
-	
+	//const char* buffer;  // read buffer
+	//buffer=" ";
     while(1){
+		loadingAnimation(500);
+		lcd_clear_display();
+		esp_write("ESP:restart");
 		// ==========    STEP 1: Connect to wifi   ===================
 		while(1){
 			esp_write("ESP:connect\n");
 						
-			buffer=esp_read();
-			
-			if (buffer[1]=='S'){//	if it return "\"Success\""	
+			//buffer=esp_read();
+			//esp_write(buffer);
+			if (strcmp(esp_read(),"Success")){//	if it return "\"Success\""	
 				lcd_clear_display();		
 				lcd_print("1. SUCCESS");
 				break;
@@ -704,8 +651,8 @@ int main(){
 		while(1){
 			esp_write("ESP:url:\"http://192.168.1.250:5000/data\"\n");
 					
-			buffer=esp_read();
-			if (buffer[1]=='S'){//	if it return "\"Success\""
+			//buffer=esp_read();
+			if (strcmp(esp_read(),"Success")){//	if it return "\"Success\""
 				lcd_clear_display();
 				lcd_print("2. SUCCESS");
 				break;
@@ -744,8 +691,7 @@ int main(){
 		while(1){
 			esp_transmit_payload(temperature, pressure, status);
 			
-			buffer=esp_read();
-			if (buffer[1]=='S'){//	if it return "\"Success\""
+			if (strcmp(esp_read(),"Success")){//	if it return "\"Success\""
 				lcd_clear_display();
 				lcd_print("3. SUCCESS");
 				break;
@@ -762,12 +708,13 @@ int main(){
 		
 		// ==========    STEP 4: SERVER RESPONSE   ===================
 		esp_write("ESP:transmit\n");
-			
-		buffer=esp_read();
+		                  
+						 
+		//buffer=esp_read();
 		
 		lcd_clear_display();
 		lcd_print("4. ");
-		lcd_print(buffer);		
+		lcd_print(esp_read());		
 		
 		loadingAnimation(2000);
 		
