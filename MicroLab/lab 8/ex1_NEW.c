@@ -535,19 +535,13 @@ void lcd_display(uint16_t temperature, uint16_t pressure, const char* status ){
 const char* esp_read(){
 	uint8_t i=0;
 	char c;
-	char readBuffer[32];  // As big as the LCD
-	//*readBuffer=NULL;
-	
-	for(int j=0; j<13; j++){
-		readBuffer[j]=' ';
-	}
-	
+	static char readBuffer[32];  // As big as the LCD
+
 	while((c = usart_receive())!= '\n'){// As long as its not change line
 		readBuffer[i++]=c;
 	}
-	//readBuffer[i]='\0';
-	//readBuffer[i++]='\n';
-	//esp_write(readBuffer);
+	readBuffer[i]='\0';
+
 	return readBuffer;
 }
 
@@ -604,7 +598,7 @@ void esp_transmit_payload(uint16_t temperature, uint16_t pressure, const char* s
 	pres = pressure /10.0; // pressure was given multiplied by 10
 	
 	// creating json
-	char json[200];
+	static char json[200];
 	
 	sprintf(json,"ESP:payload:[{\"name\": \"temperature\",\"value\": \"%.1f\"},{\"name\": \"pressure\",\"value\": \"%.1f\"},{\"name\": \"team\",\"value\": \"5\"},{\"name\": \"status\",\"value\": \"%s\"}]\n",temp, pres, status);
 	
@@ -625,19 +619,20 @@ int main(){
 	
 	uint8_t button;
 	uint16_t temperature, pressure;
-	//const char* buffer;  // read buffer
-	//buffer=" ";
-    while(1){
-		loadingAnimation(500);
-		lcd_clear_display();
-		esp_write("ESP:restart");
+    loadingAnimation(500);
+	lcd_clear_display();
+	esp_write("ESP:restart\n");
+	lcd_print("ESP:RESTARTING");
+	loadingAnimation(3000);
+	lcd_clear_display();
+	
+    while(1){	
 		// ==========    STEP 1: Connect to wifi   ===================
 		while(1){
 			esp_write("ESP:connect\n");
 						
-			//buffer=esp_read();
-			//esp_write(buffer);
-			if (strcmp(esp_read(),"Success")){//	if it return "\"Success\""	
+						
+			if (strcmp(esp_read(),"\"Success\"")==0){//	if it return "\"Success\""	
 				lcd_clear_display();		
 				lcd_print("1. SUCCESS");
 				break;
@@ -649,15 +644,14 @@ int main(){
 			}					
 		}
 		
-		loadingAnimation(1000); // wait 2 sec in between steps
+		loadingAnimation(1000); // wait 1 sec in between steps
 		 
 		 
 		// ==========    STEP 2: Connect to URL   ===================
 		while(1){
 			esp_write("ESP:url:\"http://192.168.1.250:5000/data\"\n");
 					
-			//buffer=esp_read();
-			if (strcmp(esp_read(),"Success")){//	if it return "\"Success\""
+			if (strcmp(esp_read(),"\"Success\"")==0){//	if it return "\"Success\""
 				lcd_clear_display();
 				lcd_print("2. SUCCESS");
 				break;
@@ -669,16 +663,13 @@ int main(){
 			}
 		}
 		
-		loadingAnimation(1000); // wait 2 sec in between steps
+		loadingAnimation(1000); // wait 1 sec in between steps
 		
 		
 		// ==========    STEP 3: PAYLOAD LCD   ===================
 		temperature = thermometer_routine();
 		
 		if(temperature == 0x8000){ 
-			lcd_clear_display();
-			char display[] = "THERMOMETER PLZ!";
-			lcd_print(display);
 			temperature=-1; // Value to -1 to indicate malfunction
 		}
 		
@@ -696,7 +687,7 @@ int main(){
 		while(1){
 			esp_transmit_payload(temperature, pressure, status);
 			
-			if (strcmp(esp_read(),"Success")){//	if it return "\"Success\""
+			if (strcmp(esp_read(),"\"Success\"")==0){//	if it return "\"Success\""
 				lcd_clear_display();
 				lcd_print("3. SUCCESS");
 				break;
@@ -712,13 +703,10 @@ int main(){
 		
 		
 		// ==========    STEP 4: SERVER RESPONSE   ===================
-		esp_write("ESP:transmit\n");
-		                  
-						 
-		//buffer=esp_read();
+		esp_write("ESP:transmit\n");	                  
 		
 		lcd_clear_display();
-		lcd_print("4. ");
+		lcd_print("4.");
 		lcd_print(esp_read());		
 		
 		loadingAnimation(2000);
