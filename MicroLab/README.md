@@ -35,7 +35,7 @@ This document provides a structured overview of the **Microprocessors Course**, 
 ### 🎹 Exercise 6: PCA9555D I/O Expander and Keyboards
 - **Concepts Covered:**
   - **PCA9555D I/O Expander**
-  - Interfacing external keyboards ⌨️
+  - Interfacing external 4x4 keyboard ⌨️
 - **Practical Implementation:**
   - Using the PCA9555D for GPIO expansion
   - Implementing a keypad interface
