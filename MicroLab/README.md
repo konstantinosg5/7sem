@@ -60,6 +60,7 @@ This document provides a structured overview of the **Microprocessors Course**, 
   - Displaying patient status on an LCD 📟
 
 ## 🛠️ Software & Tools
+- **ATmega328PB on a custom pcb board (NTUABOARD 1)**
 - **AVR Toolchain** (GCC for AVR) 💾
 - **Arduino IDE / Atmel Studio** 🖥️
 - **ESP8266 AT firmware** 📶
