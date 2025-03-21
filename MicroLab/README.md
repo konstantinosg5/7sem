@@ -3,7 +3,7 @@
 ## 📖 Overview
 This document provides a structured overview of the **Microprocessors Course**, covering **eight sets of exercises** focusing on embedded systems programming with the **ATmega328PB** microcontroller. The exercises include implementations in **C and Assembly**, utilizing various peripherals and communication protocols.
 
-## 📌 Exercise List
+## 📂 Repository Contents
 
 ### 🔧 Exercise 3: Timers and ADC Converters
 - **Concepts Covered:**
