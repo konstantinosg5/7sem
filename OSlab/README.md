@@ -26,7 +26,7 @@ This document provides a structured overview of the **Operating Systems Lab**, c
   - Implementing **blocking I/O** to suspend user processes when no fresh sensor data is available, reducing CPU usage.
   - Running the module in a **QEMU/KVM virtual machine**
 
-### 📂 Ext2-Lite: Lightweight Ext2 File System Implementation
+### 🗂️ Ext2-Lite: Lightweight Ext2 File System Implementation
 - **Concepts Covered:**
   - **File system design** 📁
   - **Ext2 file system structure** 🗂️
